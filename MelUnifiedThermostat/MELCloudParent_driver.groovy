@@ -81,28 +81,38 @@ def createChildACUnits() {
     debugLog("createChildACUnits: Body = ${bodyJson}, Headers = ${headers}")       
 	try {
         
-        httpGet(getParams) { resp -> 
+        httpGet(getParams) { resp ->
             //debugLog("createChildACUnits: Initial data returned from ListDevices: ${resp.data}") 
-            
-            resp?.data?.Structure?.Devices?.each { acUnit -> // Each Device
-                                 
-                                      vRoom     = "${acUnit.DeviceName}".replace("[","").replace("]","")
-                                      vUnitId   = "${acUnit.DeviceID}".replace("[","").replace("]","")
-                                      debugLog("createChildACUnits: ${vUnitId}, ${vRoom}")
-                                      
-                                      def childDevice = findChildDevice("${vUnitId}", "AC")
-                                      if (childDevide == null) {
-                                          createChildDevice("${vUnitId}", "${vRoom}", "AC")
-                                          childDevice = findChildDevice("${vUnitId}", "AC")
-                                          childDevice.sendEvent(name: "unitId", value: "${vUnitId}")
-                                      }
-                                      childDevice.refresh()
-                                      
-                                  } 
-                             
 
-                           }
-    }   
+            def addDevice = { acUnit -> // Each Device
+                if (acUnit.size()>0) {
+                    debugLog("adding device ${acUnit}")
+                    vRoom = "${acUnit.DeviceName}".replace("[", "").replace("]", "")
+                    vUnitId = "${acUnit.DeviceID}".replace("[", "").replace("]", "")
+                    debugLog("createChildACUnits: ${vUnitId}, ${vRoom}")
+
+                    def childDevice = findChildDevice("${vUnitId}", "AC")
+                    if (childDevide == null) {
+                        createChildDevice("${vUnitId}", "${vRoom}", "AC")
+                        childDevice = findChildDevice("${vUnitId}", "AC")
+                        childDevice.sendEvent(name: "unitId", value: "${vUnitId}")
+                    }
+                    childDevice.refresh()
+                }
+            }
+
+            resp?.data?.Structure?.Floors?.each { floor ->
+                floor?.Areas?.each { area ->
+                    area.Devices?.each addDevice
+                }
+                floor?.Devices?.each addDevice
+            }
+            resp?.data?.Structure?.Areas?.each { area ->
+                area?.Devices?.each addDevice
+            }
+            resp?.data?.Structure?.Devices?.each addDevice
+        }
+    }
 	catch (Exception e) {
         log.error "createChildACUnits : Unable to query Mitsubishi Electric MELCloud: ${e}"
 	}
